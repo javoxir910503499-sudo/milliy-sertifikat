@@ -15,9 +15,9 @@ if not student_name:
     st.warning("⚠️ Testni boshlash uchun iltimos ism-familiyangizni kiriting.")
     st.stop()
 
-# 2. Vaqt taymeri (Masalan: 5 daqiqa = 300 soniya)
-# Agarda haqiqiy imtihon vaqtini qo'ymoqchi bo'lsangiz, soniyani ko'paytiring (Masalan, 180 daqiqa = 10800 soniya)
-TOTAL_TIME = 300 
+# ⏱️ TEST VAQTI (Bu yerga test necha daqiqa bo'lishini yozing. Masalan: 60 daqiqa)
+TEST_DAQIQA = 60  
+TOTAL_TIME = TEST_DAQIQA * 60 
 
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
@@ -26,38 +26,40 @@ elapsed_time = time.time() - st.session_state.start_time
 remaining_time = max(0, int(TOTAL_TIME - elapsed_time))
 
 mins, secs = divmod(remaining_time, 60)
-timer_text = f"⏱️ Qolgan vaqt: {mins:02d}:{secs:02d}"
+st.info(f"⏱️ Qolgan vaqt: {mins:02d}:{secs:02d}")
 
 if remaining_time == 0:
     st.error("🚨 Vaqt tugadi! Test avtomatik yakunlanadi.")
-else:
-    st.info(timer_text)
 
 st.divider()
 
-# 3. O'qituvchi uchun savollar bazasi (Shu yerdan savollarni o'zgartirishingiz mumkin)
-questions = [
-    {
-        "id": 1,
-        "type": "choice",
-        "question": "Quyidagi kvadrat tenglamaning ildizlari yig'indisini toping: $x^2 - 7x + 12 = 0$",
-        "options": ["5", "7", "12", "-7"],
-        "correct": "7"
-    },
-    {
-        "id": 2,
-        "type": "choice",
-        "question": "Agar $\\log_2 x = 5$ bo'lsa, $x$ ning qiymatini toping.",
-        "options": ["10", "25", "32", "64"],
-        "correct": "32"
-    },
-    {
-        "id": 3,
-        "type": "open",
-        "question": "Ochiq test (Javobni son shaklida yozing): $\\int_0^2 3x^2 dx$ aniq integralni hisoblang.",
-        "correct": "8"
-    }
-]
+# =========================================================================
+# ✍️ O'QITUVCHI DIQQATIGA: SAVOLLARINGIZNI SHU YERGA ODDIY MATN DEK COPY-PASTE QILING!
+# Format: Savol | Variant1, Variant2, Variant3, Variant4 | To'g'ri javob
+# Ochiq test bo'lsa variantlar o'rniga "ochiq" deb yozing.
+# =========================================================================
+SAVOLLAR_MATNI = """
+Quyidagi kvadrat tenglamaning ildizlari yig'indisini toping: $x^2 - 7x + 12 = 0$ | 5, 7, 12, -7 | 7
+Agar $\log_2 x = 5$ bo'lsa, $x$ ning qiymatini toping. | 10, 25, 32, 64 | 32
+Ochiq test: $\int_0^2 3x^2 dx$ aniq integralni hisoblang. | ochiq | 8
+Uchburchakning ichki burchaklari yig'indisini toping. | 90, 180, 270, 360 | 180
+5-savol matnini shu yerga yozing | variant1, variant2, variant3, variant4 | variant2
+"""
+# =========================================================================
+
+# Matnni avtomatik savollarga ajratish (Kodni o'zgartirmang)
+questions = []
+for idx, line in enumerate(SAVOLLAR_MATNI.strip().split('\n'), 1):
+    parts = line.split('|')
+    if len(parts) == 3:
+        q_text = parts[0].strip()
+        opts = [o.strip() for o in parts[1].split(',')]
+        ans = parts[2].strip()
+        
+        if parts[1].strip().lower() == "ochiq":
+            questions.append({"id": idx, "type": "open", "question": q_text, "correct": ans})
+        else:
+            questions.append({"id": idx, "type": "choice", "question": q_text, "options": opts, "correct": ans})
 
 user_answers = {}
 
@@ -73,36 +75,28 @@ for q in questions:
         
     st.divider()
 
-# PDF Sertifikat yaratish funksiyasi (Xatosiz variant)
+# PDF Sertifikat yaratish funksiyasi
 def generate_pdf(name, score, percent, level):
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.add_page()
-    
     pdf.set_line_width(5)
     pdf.set_draw_color(0, 102, 204)
     pdf.rect(10, 10, 277, 190)
-    
     pdf.set_font("Helvetica", "B", 32)
     pdf.set_text_color(0, 102, 204)
     pdf.cell(0, 40, "MILLIY SERTIFIKAT", ln=True, align="C")
-    
     pdf.set_font("Helvetica", "", 18)
     pdf.set_text_color(51, 51, 51)
     pdf.cell(0, 15, "Ushbu sertifikat matematika fanidan muvaffaqiyatli o'tgan o'quvchiga beriladi:", ln=True, align="C")
-    
     pdf.set_font("Helvetica", "B", 26)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 25, name.upper(), ln=True, align="C")
-    
     pdf.set_font("Helvetica", "", 16)
     pdf.set_text_color(51, 51, 60)
     pdf.cell(0, 15, f"To'plagan bali: {score} / {len(questions)} ({percent:.1f}%)", ln=True, align="C")
     pdf.cell(0, 15, f"Berilgan Daraja: {level}", ln=True, align="C")
-    
     pdf.set_font("Helvetica", "I", 12)
-    pdf.cell(0, 30, "Sana: 22.10.2026", ln=True, align="C")
-    
-    # Ma'lumotni to'g'ri bayt ko'rinishida qaytarish
+    pdf.cell(0, 30, f"Sana: 22.10.2026", ln=True, align="C")
     return bytes(pdf.output())
 
 # 4. Natijalarni hisoblash
@@ -133,7 +127,6 @@ if st.button("📝 Testni yakunlash va natijani ko'rish", type="primary") or rem
     if level:
         st.success(f"🎉 Tabriklaymiz! Siz **{level}** sertifikatini qo'lga kiritdingiz!")
         pdf_bytes = generate_pdf(student_name, correct_count, percentage, level)
-        
         st.download_button(
             label="📥 Rasmiy Sertifikatni PDF formatida yuklab olish",
             data=pdf_bytes,
